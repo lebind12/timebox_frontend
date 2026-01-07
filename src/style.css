@@ -118,3 +118,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Toast floating - bottom left position */
+[data-sonner-toaster] {
+  position: fixed !important;
+  bottom: 16px !important;
+  left: 16px !important;
+  top: auto !important;
+  right: auto !important;
+}
+
+/* Toast message box style */
+[data-sonner-toast] {
+  padding: 16px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid var(--border) !important;
+}

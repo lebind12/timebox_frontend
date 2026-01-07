@@ -98,7 +98,12 @@ export const useTimeboxesStore = defineStore('timeboxes', () => {
       if (data) {
         const index = timeboxes.value.findIndex((tb) => tb.id === id)
         if (index !== -1) {
-          timeboxes.value[index] = data as Timebox
+          // Vue 반응성을 위해 배열을 새로 생성
+          timeboxes.value = [
+            ...timeboxes.value.slice(0, index),
+            data as Timebox,
+            ...timeboxes.value.slice(index + 1),
+          ]
         }
       }
       return data as Timebox
@@ -151,7 +156,12 @@ export const useTimeboxesStore = defineStore('timeboxes', () => {
     } else if (payload.eventType === 'UPDATE' && payload.new) {
       const index = timeboxes.value.findIndex((tb) => tb.id === payload.new!.id)
       if (index !== -1) {
-        timeboxes.value[index] = payload.new
+        // Vue 반응성을 위해 배열을 새로 생성
+        timeboxes.value = [
+          ...timeboxes.value.slice(0, index),
+          payload.new,
+          ...timeboxes.value.slice(index + 1),
+        ]
       }
     } else if (payload.eventType === 'DELETE' && payload.old) {
       timeboxes.value = timeboxes.value.filter((tb) => tb.id !== payload.old!.id)

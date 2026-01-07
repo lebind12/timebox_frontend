@@ -19,7 +19,7 @@ const dragOverMinute = ref<number | null>(null)
 const isDragging = ref(false)
 
 // 리사이즈 관련 상태
-const resizingTimebox = ref<Timebox | null>(null)
+const resizingTimeboxId = ref<string | null>(null)
 const resizeStartY = ref(0)
 const resizeStartDuration = ref(0)
 const currentResizeDuration = ref(0)
@@ -51,7 +51,19 @@ function handleDragEnter() {
   isDragging.value = true
 }
 
-function handleDragOver(event: DragEvent, hour: number) {
+// 스케줄 컨테이너 기준으로 분 단위 계산
+function getMinutesFromEvent(event: DragEvent): number {
+  if (!scheduleRef.value) return 0
+
+  const rect = scheduleRef.value.getBoundingClientRect()
+  // clientY는 뷰포트 기준, rect.top도 뷰포트 기준
+  // 스크롤된 위치를 더해서 전체 컨테이너 기준 위치 계산
+  const offsetY = event.clientY - rect.top + scheduleRef.value.scrollTop
+  const totalMinutes = Math.floor(offsetY / PIXEL_PER_MINUTE / 5) * 5
+  return Math.max(0, Math.min(totalMinutes, 24 * 60 - 5))
+}
+
+function handleDragOver(event: DragEvent) {
   event.preventDefault()
 
   // 드래그 타입에 따라 효과 변경
@@ -60,11 +72,7 @@ function handleDragOver(event: DragEvent, hour: number) {
     event.dataTransfer.dropEffect = isTimeboxMove ? 'move' : 'copy'
   }
 
-  // Calculate the exact time based on mouse position
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const offsetY = event.clientY - rect.top
-  const minuteOffset = Math.floor(offsetY / PIXEL_PER_MINUTE / 5) * 5
-  const totalMinutes = hour * 60 + Math.min(minuteOffset, 55)
+  const totalMinutes = getMinutesFromEvent(event)
   const displayHour = Math.floor(totalMinutes / 60)
   const displayMinute = totalMinutes % 60
 
@@ -74,7 +82,8 @@ function handleDragOver(event: DragEvent, hour: number) {
 
 function handleDragLeave(event: DragEvent) {
   const relatedTarget = event.relatedTarget as HTMLElement
-  if (relatedTarget && (event.currentTarget as HTMLElement).contains(relatedTarget)) {
+  const currentTarget = event.currentTarget as HTMLElement
+  if (relatedTarget && currentTarget.contains(relatedTarget)) {
     return
   }
   dragOverTime.value = null
@@ -87,17 +96,14 @@ function handleDragEnd() {
   dragOverMinute.value = null
 }
 
-async function handleDrop(event: DragEvent, hour: number) {
+async function handleDrop(event: DragEvent) {
   event.preventDefault()
   isDragging.value = false
+
+  const totalMinutes = getMinutesFromEvent(event)
+
   dragOverTime.value = null
   dragOverMinute.value = null
-
-  // Calculate drop time
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const offsetY = event.clientY - rect.top
-  const minuteOffset = Math.floor(offsetY / PIXEL_PER_MINUTE / 5) * 5
-  const totalMinutes = hour * 60 + Math.min(minuteOffset, 55)
 
   // 타임박스 이동 처리
   const timeboxData = event.dataTransfer?.getData('timebox/move')
@@ -136,7 +142,7 @@ async function handleDrop(event: DragEvent, hour: number) {
 
 // 타임박스 리사이즈 핸들러
 function handleTimeboxResizeStart(timebox: Timebox, event: MouseEvent) {
-  resizingTimebox.value = timebox
+  resizingTimeboxId.value = timebox.id
   resizeStartY.value = event.clientY
   resizeStartDuration.value = timebox.duration_minutes
   currentResizeDuration.value = timebox.duration_minutes
@@ -148,7 +154,7 @@ function handleTimeboxResizeStart(timebox: Timebox, event: MouseEvent) {
 }
 
 function handleResizeMove(event: MouseEvent) {
-  if (!resizingTimebox.value) return
+  if (!resizingTimeboxId.value) return
 
   const deltaY = event.clientY - resizeStartY.value
   const deltaMinutes = Math.round(deltaY / PIXEL_PER_MINUTE / 5) * 5
@@ -164,11 +170,11 @@ async function handleResizeEnd() {
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
 
-  if (!resizingTimebox.value) return
+  if (!resizingTimeboxId.value) return
 
   if (currentResizeDuration.value !== resizeStartDuration.value) {
     try {
-      await timeboxesStore.updateTimebox(resizingTimebox.value.id, {
+      await timeboxesStore.updateTimebox(resizingTimeboxId.value, {
         duration_minutes: currentResizeDuration.value,
       })
       toast.success('타임박스 길이가 변경되었습니다.')
@@ -178,13 +184,13 @@ async function handleResizeEnd() {
     }
   }
 
-  resizingTimebox.value = null
+  resizingTimeboxId.value = null
   currentResizeDuration.value = 0
 }
 
 // 리사이즈 중인 타임박스의 높이 계산
 function getTimeboxHeight(timebox: Timebox): number {
-  if (resizingTimebox.value?.id === timebox.id) {
+  if (resizingTimeboxId.value === timebox.id) {
     return currentResizeDuration.value * PIXEL_PER_MINUTE
   }
   return timebox.duration_minutes * PIXEL_PER_MINUTE
@@ -218,6 +224,10 @@ onUnmounted(() => {
     ref="scheduleRef"
     class="flex-1 overflow-auto"
     @dragend="handleDragEnd"
+    @dragenter="handleDragEnter"
+    @dragover="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleDrop"
   >
     <div class="relative" :style="{ height: `${24 * HOUR_HEIGHT}px` }">
       <!-- Hour rows -->
@@ -226,20 +236,13 @@ onUnmounted(() => {
         :key="hour"
         class="absolute left-0 right-0 flex"
         :style="{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px`, borderTop: '6px solid var(--border)' }"
-        @dragenter="handleDragEnter"
-        @dragover="handleDragOver($event, hour)"
-        @dragleave="handleDragLeave"
-        @drop="handleDrop($event, hour)"
       >
         <!-- Time label -->
         <div class="w-16 shrink-0 text-xs text-muted-foreground pr-2 pt-1 text-right">
           {{ formatHour(hour) }}
         </div>
         <!-- Drop zone -->
-        <div
-          class="flex-1 relative"
-          :class="{ 'bg-primary/5': dragOverTime?.startsWith(hour.toString().padStart(2, '0')) }"
-        >
+        <div class="flex-1 relative">
           <!-- 15-minute lines -->
           <div
             class="absolute left-0 right-0"
@@ -255,29 +258,30 @@ onUnmounted(() => {
             class="absolute left-0 right-0"
             :style="{ top: `${PIXEL_PER_MINUTE * 45}px`, borderTop: '2px dotted color-mix(in srgb, var(--border) 50%, transparent)' }"
           />
-
-          <!-- 5-minute slot highlight during drag -->
-          <div
-            v-if="isDragging && dragOverMinute !== null && Math.floor(dragOverMinute / 60) === hour"
-            class="absolute left-0 right-0 bg-primary/20 border-t-2 border-primary pointer-events-none transition-all duration-75"
-            :style="{
-              top: `${(dragOverMinute % 60) * PIXEL_PER_MINUTE}px`,
-              height: `${PIXEL_PER_MINUTE * 60}px`,
-            }"
-          />
         </div>
       </div>
 
+      <!-- 5-minute slot highlight during drag -->
+      <div
+        v-if="isDragging && dragOverMinute !== null"
+        class="absolute left-16 right-0 bg-primary/20 border-t-2 border-primary pointer-events-none transition-all duration-75"
+        :style="{
+          top: `${dragOverMinute * PIXEL_PER_MINUTE}px`,
+          height: `${PIXEL_PER_MINUTE * 30}px`,
+        }"
+      />
+
       <!-- Timeboxes -->
-      <div class="absolute left-16 right-0">
+      <div class="absolute left-16 right-0 pointer-events-none">
         <TimeboxItem
           v-for="timebox in timeboxesStore.timeboxesByDate"
           :key="timebox.id"
           :timebox="timebox"
           :pixel-per-minute="PIXEL_PER_MINUTE"
+          :override-height="resizingTimeboxId === timebox.id ? getTimeboxHeight(timebox) : undefined"
           :style="{
             top: `${getTimeboxTop(timebox)}px`,
-            height: resizingTimebox?.id === timebox.id ? `${getTimeboxHeight(timebox)}px` : undefined,
+            pointerEvents: 'auto',
           }"
           @start-resize="handleTimeboxResizeStart"
         />
@@ -305,7 +309,7 @@ onUnmounted(() => {
 
     <!-- Resize duration indicator -->
     <div
-      v-if="resizingTimebox"
+      v-if="resizingTimeboxId"
       class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium shadow-lg z-50"
     >
       {{ currentResizeDuration }}분
