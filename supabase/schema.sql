@@ -104,6 +104,54 @@ CREATE TRIGGER update_timeboxes_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Daily Tasks table (매일 할 일)
+CREATE TABLE IF NOT EXISTS daily_tasks (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    default_start_time TIME,
+    default_duration_minutes INTEGER DEFAULT 60,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for daily_tasks
+CREATE INDEX IF NOT EXISTS idx_daily_tasks_user_id ON daily_tasks(user_id);
+
+-- Enable RLS for daily_tasks
+ALTER TABLE daily_tasks ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for daily_tasks
+CREATE POLICY "Users can view own daily tasks"
+ON daily_tasks FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own daily tasks"
+ON daily_tasks FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own daily tasks"
+ON daily_tasks FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own daily tasks"
+ON daily_tasks FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- Trigger for daily_tasks updated_at
+DROP TRIGGER IF EXISTS update_daily_tasks_updated_at ON daily_tasks;
+CREATE TRIGGER update_daily_tasks_updated_at
+    BEFORE UPDATE ON daily_tasks
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Enable Realtime (run in Supabase Dashboard > Database > Replication)
 -- ALTER PUBLICATION supabase_realtime ADD TABLE todos;
 -- ALTER PUBLICATION supabase_realtime ADD TABLE timeboxes;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE daily_tasks;

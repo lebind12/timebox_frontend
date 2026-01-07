@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
@@ -10,6 +10,29 @@ import { CalendarDate, type DateValue } from '@internationalized/date'
 
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+
+// 다크모드 상태
+const isDark = ref(false)
+
+onMounted(() => {
+  // localStorage 또는 시스템 설정에서 다크모드 초기화
+  const saved = localStorage.getItem('theme')
+  if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    isDark.value = true
+    document.documentElement.classList.add('dark')
+  }
+})
+
+function toggleDarkMode() {
+  isDark.value = !isDark.value
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
+    localStorage.setItem('theme', 'dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('theme', 'light')
+  }
+}
 
 const calendarValue = computed({
   get: () => {
@@ -103,6 +126,12 @@ async function handleLogout() {
       </div>
 
       <div class="flex items-center gap-2">
+        <Button variant="ghost" size="sm" @click="toggleDarkMode" title="다크모드 전환">
+          <!-- Sun icon (light mode) -->
+          <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          <!-- Moon icon (dark mode) -->
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </Button>
         <span class="text-sm text-muted-foreground hidden sm:inline">
           {{ authStore.user?.email }}
         </span>

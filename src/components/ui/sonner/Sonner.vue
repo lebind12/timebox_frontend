@@ -15,6 +15,13 @@ const props = defineProps<ToasterProps>()
       '--normal-text': 'var(--popover-foreground)',
       '--normal-border': 'var(--border)',
       '--border-radius': 'var(--radius)',
+      '--success-bg': 'oklch(0.9 0.15 145)',
+      '--success-border': 'oklch(0.7 0.2 145)',
+      '--success-text': 'oklch(0.3 0.1 145)',
+      '--error-bg': 'oklch(0.9 0.15 25)',
+      '--error-border': 'oklch(0.7 0.2 25)',
+      '--error-text': 'oklch(0.3 0.1 25)',
+      'z-index': '9999',
     }"
     v-bind="props"
   >

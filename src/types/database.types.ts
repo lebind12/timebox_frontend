@@ -79,6 +79,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      daily_tasks: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          default_start_time: string | null
+          default_duration_minutes: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          default_start_time?: string | null
+          default_duration_minutes?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          default_start_time?: string | null
+          default_duration_minutes?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -99,3 +131,7 @@ export type TodoUpdate = Database['public']['Tables']['todos']['Update']
 export type Timebox = Database['public']['Tables']['timeboxes']['Row']
 export type TimeboxInsert = Database['public']['Tables']['timeboxes']['Insert']
 export type TimeboxUpdate = Database['public']['Tables']['timeboxes']['Update']
+
+export type DailyTask = Database['public']['Tables']['daily_tasks']['Row']
+export type DailyTaskInsert = Database['public']['Tables']['daily_tasks']['Insert']
+export type DailyTaskUpdate = Database['public']['Tables']['daily_tasks']['Update']

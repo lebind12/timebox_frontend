@@ -3,6 +3,6 @@ import { Toaster } from '@/components/ui/sonner'
 </script>
 
 <template>
-  <Toaster position="top-right" />
+  <Toaster position="top-right" :rich-colors="true" :expand="true" />
   <router-view />
 </template>
